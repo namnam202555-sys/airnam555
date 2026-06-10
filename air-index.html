@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AirSense — ตรวจสอบคุณภาพอากาศ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b0f1a;
+      --surface:   #131929;
+      --card:      #1a2236;
+      --border:    #243050;
+      --text:      #e8edf8;
+      --muted:     #6b7fa3;
+      --accent:    #4af0c4;
+      --accent2:   #3b9eff;
+
+      /* AQI level colors */
+      --aqi-good:       #4af0c4;
+      --aqi-moderate:   #ffe066;
+      --aqi-unhealthy-s:#ffad42;
+      --aqi-unhealthy:  #ff6b6b;
+      --aqi-very-unhealthy:#c084fc;
+      --aqi-hazardous:  #ff4d6d;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ─── Header ─── */
+    header {
+      width: 100%;
+      padding: 20px 24px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+    header span {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* ─── Main ─── */
+    main {
+      width: 100%;
+      max-width: 480px;
+      padding: 28px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ─── Hero card ─── */
+    .hero-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 24px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.4s;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 60% 0%, rgba(74,240,196,0.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .aqi-display {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .aqi-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 5rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--accent);
+      transition: color 0.5s;
+    }
+    .aqi-unit-block {
+      padding-bottom: 8px;
+    }
+    .aqi-unit {
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: block;
+    }
+    .aqi-label-badge {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(74,240,196,0.15);
+      color: var(--accent);
+      transition: background 0.4s, color 0.4s;
+    }
+    .aqi-desc {
+      margin-top: 12px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ─── Gauge bar ─── */
+    .gauge-wrap { margin-top: 20px; }
+    .gauge-track {
+      height: 6px;
+      border-radius: 99px;
+      background: linear-gradient(
+        to right,
+        #4af0c4 0%, #ffe066 33%, #ffad42 50%,
+        #ff6b6b 66%, #c084fc 83%, #ff4d6d 100%
+      );
+      position: relative;
+    }
+    .gauge-thumb {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 0 0 3px var(--bg), 0 0 10px rgba(255,255,255,0.4);
+      transition: left 0.8s cubic-bezier(0.34,1.56,0.64,1);
+      left: 0%;
+    }
+    .gauge-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .gauge-labels span {
+      font-size: 0.62rem;
+      color: var(--muted);
+    }
+
+    /* ─── Location row ─── */
+    .location-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      padding: 0 2px;
+    }
+    .location-row svg { flex-shrink: 0; opacity: 0.6; }
+    .location-row strong { color: var(--text); font-weight: 600; }
+
+    /* ─── Pollutants grid ─── */
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .pollutants-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .poll-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .poll-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .poll-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+    .poll-unit {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .poll-bar-track {
+      margin-top: 10px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .poll-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--accent2);
+      width: 0%;
+      transition: width 1s ease;
+    }
+
+    /* ─── Health tips ─── */
+    .tips-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .tip-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.86rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .tip-item:last-child { border-bottom: none; }
+    .tip-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* ─── Button ─── */
+    .btn-refresh {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0b0f1a;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity 0.2s, transform 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-refresh:active { transform: scale(0.97); }
+    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ─── States ─── */
+    .state-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .state-icon { font-size: 3rem; margin-bottom: 14px; }
+    .state-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+    .state-sub { font-size: 0.86rem; color: var(--muted); line-height: 1.6; }
+
+    /* ─── Pulse animation ─── */
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+    .loading .aqi-number { animation: pulse 1.5s ease infinite; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2.5px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    .btn-refresh.loading .spinner { display: block; }
+    .btn-refresh.loading .btn-text { display: none; }
+
+    /* ─── Timestamp ─── */
+    .timestamp {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-dot"></div>
+  <h1>AirSense</h1>
+  <span>ตรวจสอบคุณภาพอากาศ</span>
+</header>
+
+<main>
+  <!-- Initial / Idle state -->
+  <div id="idle-state" class="state-card">
+    <div class="state-icon">🌿</div>
+    <div class="state-title">รู้อากาศรอบตัวคุณ</div>
+    <div class="state-sub">กดปุ่มด้านล่างเพื่อตรวจสอบคุณภาพอากาศ ณ ตำแหน่งปัจจุบัน ระบบจะขอสิทธิ์เข้าถึงพิกัดของคุณ</div>
+  </div>
+
+  <!-- Error state (hidden) -->
+  <div id="error-state" class="state-card" style="display:none">
+    <div class="state-icon">⚠️</div>
+    <div class="state-title" id="error-title">เกิดข้อผิดพลาด</div>
+    <div class="state-sub" id="error-msg"></div>
+  </div>
+
+  <!-- Data view (hidden) -->
+  <div id="data-view" style="display:none; display:flex; flex-direction:column; gap:20px;">
+
+    <!-- Hero AQI card -->
+    <div class="hero-card" id="hero-card">
+      <div class="hero-label">AQI · US Standard</div>
+      <div class="aqi-display">
+        <div class="aqi-number" id="aqi-number">—</div>
+        <div class="aqi-unit-block">
+          <span class="aqi-unit">ดัชนี</span>
+          <span class="aqi-label-badge" id="aqi-badge">—</span>
+        </div>
+      </div>
+      <div class="aqi-desc" id="aqi-desc">—</div>
+      <div class="gauge-wrap">
+        <div class="gauge-track">
+          <div class="gauge-thumb" id="gauge-thumb"></div>
+        </div>
+        <div class="gauge-labels">
+          <span>ดี</span><span>ปาน</span><span>ไม่ดี</span><span>อันตราย</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Location row -->
+    <div class="location-row">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+      <span>พิกัด: <strong id="loc-text">—</strong></span>
+    </div>
+
+    <!-- Pollutants -->
+    <div>
+      <div class="section-title">สารมลพิษหลัก</div>
+      <div class="pollutants-grid" id="poll-grid"></div>
+    </div>
+
+    <!-- Health Tips -->
+    <div>
+      <div class="section-title">คำแนะนำสุขภาพ</div>
+      <div class="tips-card" id="tips-card"></div>
+    </div>
+
+    <div class="timestamp" id="timestamp"></div>
+  </div>
+
+  <!-- Refresh button -->
+  <button class="btn-refresh" id="btn-refresh" onclick="fetchAirQuality()">
+    <div class="spinner"></div>
+    <span class="btn-text">📍 ตรวจสอบตำแหน่งปัจจุบัน</span>
+  </button>
+</main>
+
+<script>
+// ─────────────────────────────────────────
+// AQI Level definitions (US EPA)
+// ─────────────────────────────────────────
+const AQI_LEVELS = [
+  { max: 50,  label:'ดีมาก',          color:'#4af0c4', desc:'อากาศสะอาด เหมาะสำหรับกิจกรรมกลางแจ้งทุกประเภท', gaugePos:8 },
+  { max: 100, label:'ปานกลาง',        color:'#ffe066', desc:'อากาศพอใช้ได้ ผู้ที่ไวต่อมลพิษควรระวังเป็นพิเศษ', gaugePos:25 },
+  { max: 150, label:'ไม่ดีต่อบางกลุ่ม',color:'#ffad42', desc:'กลุ่มเสี่ยง เช่น เด็ก ผู้สูงอายุ ควรลดกิจกรรมกลางแจ้ง', gaugePos:45 },
+  { max: 200, label:'ไม่ดีต่อสุขภาพ', color:'#ff6b6b', desc:'ทุกคนอาจได้รับผลกระทบ ควรหลีกเลี่ยงกิจกรรมนอกบ้านที่ใช้แรงมาก', gaugePos:62 },
+  { max: 300, label:'อันตรายมาก',      color:'#c084fc', desc:'ระดับอันตรายสูง ทุกคนควรอยู่ในบ้านและปิดประตูหน้าต่าง', gaugePos:80 },
+  { max: 500, label:'อันตรายวิกฤต',   color:'#ff4d6d', desc:'สภาวะฉุกเฉิน ห้ามออกนอกบ้านโดยไม่จำเป็น', gaugePos:95 },
+];
+
+const HEALTH_TIPS = {
+  0: [
+    { icon:'🏃', text:'เหมาะสมสำหรับวิ่งออกกำลังกายหรือทำกิจกรรมกลางแจ้งทุกชนิด' },
+    { icon:'🪟', text:'เปิดหน้าต่างรับอากาศบริสุทธิ์ได้เลย' },
+    { icon:'😊', text:'ไม่ต้องใส่หน้ากากอนามัย' },
+  ],
+  1: [
+    { icon:'😷', text:'ผู้ที่แพ้ฝุ่นหรือมีโรคระบบทางเดินหายใจ ควรระวังเป็นพิเศษ' },
+    { icon:'🏃', text:'คนทั่วไปทำกิจกรรมกลางแจ้งได้ตามปกติ' },
+    { icon:'💧', text:'ดื่มน้ำให้เพียงพอเพื่อช่วยกำจัดสารพิษในร่างกาย' },
+  ],
+  2: [
+    { icon:'😷', text:'เด็ก ผู้สูงอายุ และผู้ป่วยโรคหัวใจ/หืด ควรใส่หน้ากาก N95' },
+    { icon:'🏠', text:'ควรลดเวลาทำกิจกรรมกลางแจ้งให้น้อยลง' },
+    { icon:'🌿', text:'ปลูกต้นไม้ฟอกอากาศในบ้าน เช่น ปาล์มไผ่ หรือลิ้นมังกร' },
+  ],
+  3: [
+    { icon:'😷', text:'ทุกคนควรสวมหน้ากาก N95 หากต้องออกนอกบ้าน' },
+    { icon:'🏠', text:'ปิดประตูหน้าต่างให้มิดชิด ใช้เครื่องฟอกอากาศในบ้าน' },
+    { icon:'🚫', text:'งดออกกำลังกายกลางแจ้งทุกชนิด' },
+  ],
+  4: [
+    { icon:'🚨', text:'ระดับอันตราย — อยู่ในบ้านเป็นหลัก หลีกเลี่ยงการออกนอกบ้าน' },
+    { icon:'😷', text:'หากจำเป็นต้องออกไปข้างนอก ใส่หน้ากาก N95 ตลอดเวลา' },
+    { icon:'🏥', text:'หากมีอาการระคายเคืองตา คัดจมูก หรือหายใจลำบาก ควรพบแพทย์' },
+  ],
+  5: [
+    { icon:'🚨', text:'สภาวะวิกฤต — ห้ามออกนอกบ้านโดยเด็ดขาดหากไม่จำเป็น' },
+    { icon:'🏥', text:'ผู้ป่วยโรคระบบหายใจและหัวใจ ควรติดต่อแพทย์ทันที' },
+    { icon:'📞', text:'ติดตามประกาศจากหน่วยงานสาธารณสุขในพื้นที่ของคุณ' },
+  ],
+};
+
+// ─────────────────────────────────────────
+// Pollutant definitions
+// ─────────────────────────────────────────
+const POLLUTANTS = [
+  { key:'pm2_5',        name:'PM2.5',   unit:'μg/m³', max:150 },
+  { key:'pm10',         name:'PM10',    unit:'μg/m³', max:300 },
+  { key:'nitrogen_dioxide', name:'NO₂', unit:'μg/m³', max:200 },
+  { key:'ozone',        name:'O₃',      unit:'μg/m³', max:200 },
+];
+
+// ─────────────────────────────────────────
+// Main logic
+// ─────────────────────────────────────────
+function getAQILevel(aqi) {
+  for (let i = 0; i < AQI_LEVELS.length; i++) {
+    if (aqi <= AQI_LEVELS[i].max) return { ...AQI_LEVELS[i], index: i };
+  }
+  return { ...AQI_LEVELS[5], index: 5 };
+}
+
+// Convert European AQI (from Open-Meteo) → US-style AQI approximation via PM2.5
+function calcUSAQI(pm25) {
+  // EPA breakpoints
+  const bp = [
+    [0,12,0,50],[12.1,35.4,51,100],[35.5,55.4,101,150],
+    [55.5,150.4,151,200],[150.5,250.4,201,300],[250.5,500.4,301,500]
+  ];
+  for (const [cLo,cHi,iLo,iHi] of bp) {
+    if (pm25 <= cHi) {
+      return Math.round(((iHi-iLo)/(cHi-cLo))*(pm25-cLo)+iLo);
+    }
+  }
+  return 500;
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+}
+
+function showState(name) {
+  document.getElementById('idle-state').style.display  = name==='idle'  ? '' : 'none';
+  document.getElementById('error-state').style.display = name==='error' ? '' : 'none';
+  document.getElementById('data-view').style.display   = name==='data'  ? 'flex' : 'none';
+}
+
+function showError(title, msg) {
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('error-msg').textContent   = msg;
+  showState('error');
+}
+
+async function fetchAirQuality() {
+  setLoading(true);
+  try {
+    // 1. Geolocation
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
+
+    // 2. Fetch air quality from Open-Meteo (free, no key needed)
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm2_5,pm10,nitrogen_dioxide,ozone&current=pm2_5,pm10,nitrogen_dioxide,ozone,european_aqi&timezone=auto`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API error ' + res.status);
+    const data = await res.json();
+
+    const cur = data.current;
+    const pm25 = cur.pm2_5 ?? 0;
+    const pm10 = cur.pm10 ?? 0;
+    const no2  = cur.nitrogen_dioxide ?? 0;
+    const oz   = cur.ozone ?? 0;
+
+    const usAQI = calcUSAQI(pm25);
+    const level = getAQILevel(usAQI);
+
+    // ─── Render ───
+    // AQI number & color
+    const numEl = document.getElementById('aqi-number');
+    numEl.textContent = usAQI;
+    numEl.style.color = level.color;
+
+    const badge = document.getElementById('aqi-badge');
+    badge.textContent = level.label;
+    badge.style.background = level.color + '25';
+    badge.style.color = level.color;
+
+    document.getElementById('aqi-desc').textContent = level.desc;
+    document.getElementById('hero-card').style.borderColor = level.color + '55';
+
+    // Gauge thumb
+    document.getElementById('gauge-thumb').style.left = level.gaugePos + '%';
+
+    // Location
+    document.getElementById('loc-text').textContent =
+      `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+    // Pollutants
+    const grid = document.getElementById('poll-grid');
+    grid.innerHTML = '';
+    const vals = { pm2_5: pm25, pm10: pm10, nitrogen_dioxide: no2, ozone: oz };
+    POLLUTANTS.forEach(p => {
+      const v = vals[p.key] ?? 0;
+      const pct = Math.min((v / p.max) * 100, 100).toFixed(1);
+      const card = document.createElement('div');
+      card.className = 'poll-card';
+      card.innerHTML = `
+        <div class="poll-name">${p.name}</div>
+        <div class="poll-value">${v.toFixed(1)}</div>
+        <div class="poll-unit">${p.unit}</div>
+        <div class="poll-bar-track">
+          <div class="poll-bar-fill" style="width:0%" data-target="${pct}"></div>
+        </div>`;
+      grid.appendChild(card);
+    });
+    // Animate bars after render
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.querySelectorAll('.poll-bar-fill').forEach(el => {
+        el.style.width = el.dataset.target + '%';
+      });
+    }));
+
+    // Tips
+    const tips = HEALTH_TIPS[level.index] || HEALTH_TIPS[0];
+    const tipsEl = document.getElementById('tips-card');
+    tipsEl.innerHTML = tips.map(t =>
+      `<div class="tip-item"><span class="tip-icon">${t.icon}</span><span>${t.text}</span></div>`
+    ).join('');
+
+    // Timestamp
+    const now = new Date();
+    document.getElementById('timestamp').textContent =
+      'อัปเดตล่าสุด: ' + now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+
+    showState('data');
+
+  } catch (err) {
+    if (err.code === 1) {
+      showError('ไม่ได้รับสิทธิ์เข้าถึงตำแหน่ง',
+        'กรุณาอนุญาตการเข้าถึงตำแหน่งในการตั้งค่าเบราว์เซอร์ของคุณ แล้วลองใหม่อีกครั้ง');
+    } else if (err.code === 2) {
+      showError('ไม่สามารถระบุตำแหน่งได้',
+        'ไม่พบสัญญาณ GPS กรุณาตรวจสอบว่าเปิด Location Services แล้ว');
+    } else {
+      showError('เชื่อมต่อไม่ได้', 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่ (' + err.message + ')');
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Auto-check on load if geolocation available
+if (!navigator.geolocation) {
+  showError('ไม่รองรับ Geolocation', 'เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง กรุณาใช้เบราว์เซอร์รุ่นใหม่');
+}
+</script>
+</body>
+</html>
